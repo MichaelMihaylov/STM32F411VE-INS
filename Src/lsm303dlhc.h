@@ -64,6 +64,7 @@
 /**
   * @}
   */
+
  typedef struct
  {
    volatile float flaccelX;            /* Axes Data*/

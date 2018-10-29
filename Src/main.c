@@ -99,6 +99,7 @@ volatile float flAngleZ;
 volatile uint16_t count;
 const float PI = 3.1415927;
 GyroStruct L3GD20Gyro;
+AccelStruct LSM303Accel;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -116,7 +117,7 @@ void StartDefaultTask(void const * argument);
 void L3GD20_Init(L3GD20_InitTypeDef *L3GD20_InitStruct);
 static void readGyroXYZ(GyroStruct *GyroData);
 static void readMagXYZ(void);
-static void readAccXYZ(void);
+static void readAccXYZ(AccelStruct *AccelData);
 static void LSM303DLHC_Init(void);
 void mag_Write(uint8_t buffer, uint8_t WriteAddr);
 uint8_t mag_Read(uint8_t ReadAddr);
@@ -173,7 +174,29 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
 	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_2);
-	readAccXYZ();
+	readAccXYZ(&LSM303Accel);
+	if(LSM303Accel.u8calCnt < 200)
+	{
+		LSM303Accel.flaccelXOff += LSM303Accel.flaccelX;
+		LSM303Accel.flaccelYOff += LSM303Accel.flaccelY;
+		LSM303Accel.flaccelZOff += LSM303Accel.flaccelZ;
+		LSM303Accel.u8calCnt++;
+	}
+	else
+		if( LSM303Accel.u8calCnt == 200 )
+		{
+			LSM303Accel.flaccelXOff /= 200;
+			LSM303Accel.flaccelYOff /= 200;
+			LSM303Accel.flaccelZOff /= 200;
+			LSM303Accel.flaccelZOff -= 1; // According to gravity on Z axis
+			LSM303Accel.u8calCnt++ ;
+		}
+		else
+			{
+				LSM303Accel.flaccelX -= LSM303Accel.flaccelXOff;
+				LSM303Accel.flaccelY -= LSM303Accel.flaccelYOff;
+				LSM303Accel.flaccelZ -= LSM303Accel.flaccelZOff;
+			}
 
 	readMagXYZ();
 }
@@ -324,7 +347,7 @@ uint8_t mag_Read(uint8_t ReadAddr)
 	return value;
 }
 
-static void readAccXYZ(void)
+static void readAccXYZ(AccelStruct *AccelData)
 {
 	uint8_t i = 0x00;
 	uint8_t u8adrValL = 0x00;
@@ -342,9 +365,9 @@ static void readAccXYZ(void)
 	accelBuf[2] = ( accelBuf[2] & 0x800 ? accelBuf[2] | 0xf000 : accelBuf[2] );
 
 
-	flAccelX = accelBuf[0] * (0.004);
-	flAccelY = accelBuf[1] * (0.004);
-	flAccelZ = accelBuf[2] * (0.004);
+	AccelData->flaccelX = accelBuf[0] * (0.004);
+	AccelData->flaccelY = accelBuf[1] * (0.004);
+	AccelData->flaccelZ = accelBuf[2] * (0.004);
 }
 static void readMagXYZ(void)
 {
@@ -367,7 +390,7 @@ static void readMagXYZ(void)
 }
 static void LSM303DLHC_Init(void)
 {
-	accel_Write( 0x97, 0x20);
+	accel_Write( 0x67, 0x20);
 	accel_Write( 0x10, 0x22);
 	accel_Write( 0x68, 0x23);
 
@@ -375,8 +398,17 @@ static void LSM303DLHC_Init(void)
 	mag_Write(0x80, 0x01);
 	mag_Write(0x00, 0x02);
 
+
+	LSM303Accel.flaccelX = 0;
+	LSM303Accel.flaccelY = 0;
+	LSM303Accel.flaccelZ = 0;
+	LSM303Accel.flaccelXOff = 0;
+	LSM303Accel.flaccelYOff = 0;
+	LSM303Accel.flaccelZOff = 0;
+	LSM303Accel.u8calCnt = 0;
+
 	/**/
-	readAccXYZ();
+	readAccXYZ(&LSM303Accel);
 	readMagXYZ();
 }
 static void toEulerAngle(void)
@@ -422,7 +454,7 @@ void AccelMag_Task(void *pvParameters)
 	mag_Write(0x9C, 0x00);
 	mag_Write(0x80, 0x01);
 	mag_Write(0x00, 0x02);
-	readAccXYZ();
+	readAccXYZ(&LSM303Accel);
 
 	readMagXYZ();
 
