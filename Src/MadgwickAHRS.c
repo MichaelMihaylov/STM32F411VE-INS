@@ -22,7 +22,7 @@
 // Definitions
 
 #define sampleFreq	200.0f		// sample frequency in Hz
-#define betaDef		0.1f		// 2 * proportional gain
+#define betaDef		0.5f		// 2 * proportional gain
 
 
 
@@ -64,9 +64,9 @@ void MadgwickAHRSupdate(float gx, float gy, float gz, float ax, float ay, float 
 	}
 //
 //	// Convert gyroscope degrees/sec to radians/sec
-//	gx *= 0.0174533f;
-//	gy *= 0.0174533f;
-//	gz *= 0.0174533f;
+	gx *= 0.0174533f;
+	gy *= 0.0174533f;
+	gz *= 0.0174533f;
 
 	// Rate of change of quaternion from gyroscope
 	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);

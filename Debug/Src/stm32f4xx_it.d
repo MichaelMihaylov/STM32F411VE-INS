@@ -1,7 +1,7 @@
 Src/stm32f4xx_it.o: ../Src/stm32f4xx_it.c \
+ C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/stm32f4xx_hal_conf.h \
- C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h \
@@ -52,11 +52,11 @@ Src/stm32f4xx_it.o: ../Src/stm32f4xx_it.c \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Middlewares/Third_Party/FreeRTOS/Source/include/timers.h
 
+C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h:
+
 C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 
 C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/stm32f4xx_hal_conf.h:
-
-C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h:
 
 C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h:
 

@@ -1,56 +1,16 @@
-
+/* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * This notice applies to any and all portions of this file
-  * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
-  * inserted by the user or by software development tools
-  * are owned by their respective copyright owners.
-  *
-  * Copyright (c) 2018 STMicroelectronics International N.V. 
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without 
-  * modification, are permitted, provided that the following conditions are met:
-  *
-  * 1. Redistribution of source code must retain the above copyright notice, 
-  *    this list of conditions and the following disclaimer.
-  * 2. Redistributions in binary form must reproduce the above copyright notice,
-  *    this list of conditions and the following disclaimer in the documentation
-  *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other 
-  *    contributors to this software may be used to endorse or promote products 
-  *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this 
-  *    software, must execute solely and exclusively on microcontroller or
-  *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under 
-  *    this license is void and will automatically terminate your rights under 
-  *    this license. 
-  *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
-  * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
-  * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  ******************************************************************************
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used 
+  * @retval None
   */
+/* USER CODE END Header */
+
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 
+/* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include "L3GD20.h"
@@ -58,24 +18,53 @@
 #include "MadgwickAHRS.h"
 /* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+typedef enum tSensorReadState
+{
+  eSenRead_Idle,
+  eSenRead_Accel,
+  eSenRead_Magn
+} tI2CSensorReadState;
+
+typedef enum
+{
+  cFalse,
+  cTrue
+} boolean;
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
 
 I2S_HandleTypeDef hi2s2;
 I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_rx;
 
 HCD_HandleTypeDef hhcd_USB_OTG_FS;
 
 osThreadId defaultTaskHandle;
-
 /* USER CODE BEGIN PV */
 /*	KOSTAL SofiaSoft Bulgaria EOOD
  * 	47A Tsarigradsko Shose Blvd.
  *	Sofia 1124
  *	Bulgaria					  */
 /* Private variables ---------------------------------------------------------*/
+osThreadId sensorTaskHandle;
+
 uint8_t spiTxBuf[2];
 uint8_t spiRxBuf[6];
 uint8_t i2cTxBuf[2];
@@ -98,22 +87,35 @@ volatile float flAngleY;
 volatile float flAngleZ;
 volatile uint16_t count;
 const float PI = 3.1415927;
+const uint8_t cCalibrationSamples = 40;
 GyroStruct L3GD20Gyro;
 AccelStruct LSM303Accel;
+static tI2CSensorReadState eI2CSensorReadState = eSenRead_Idle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USB_OTG_FS_HCD_Init(void);
 static void MX_I2S2_Init(void);
 static void MX_I2S3_Init(void);
+
+static void ReadI2CSens(void);
+static void AccelConvData(void);
+static void MagnConvData(void);
+static HAL_StatusTypeDef AccelRead(void);
+static HAL_StatusTypeDef MagnRead(void);
+
+
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+void sensorRead_5ms (void const * argument);
+
 void L3GD20_Init(L3GD20_InitTypeDef *L3GD20_InitStruct);
 static void readGyroXYZ(GyroStruct *GyroData);
 static void readMagXYZ(void);
@@ -125,15 +127,19 @@ uint8_t mag_Read(uint8_t ReadAddr);
 static void toEulerAngle(void);
 /* USER CODE END PFP */
 
+/* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
 /* Interrupt handler for DataReady Pin of L3GD20 */
 void EXTI1_IRQHandler(void)
 {
 	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
+
 	uint32_t u32TickL = 0;
 	float flTempL;
+
 	readGyroXYZ(&L3GD20Gyro);
+
 	if(L3GD20Gyro.u8calCnt < 200)
 	{
 		L3GD20Gyro.flgyroXOff += L3GD20Gyro.flgyroX;
@@ -174,31 +180,31 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
 	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_2);
-	readAccXYZ(&LSM303Accel);
-	if(LSM303Accel.u8calCnt < 200)
-	{
-		LSM303Accel.flaccelXOff += LSM303Accel.flaccelX;
-		LSM303Accel.flaccelYOff += LSM303Accel.flaccelY;
-		LSM303Accel.flaccelZOff += LSM303Accel.flaccelZ;
-		LSM303Accel.u8calCnt++;
-	}
-	else
-		if( LSM303Accel.u8calCnt == 200 )
-		{
-			LSM303Accel.flaccelXOff /= 200;
-			LSM303Accel.flaccelYOff /= 200;
-			LSM303Accel.flaccelZOff /= 200;
-			LSM303Accel.flaccelZOff -= 1; // According to gravity on Z axis
-			LSM303Accel.u8calCnt++ ;
-		}
-		else
-			{
-				LSM303Accel.flaccelX -= LSM303Accel.flaccelXOff;
-				LSM303Accel.flaccelY -= LSM303Accel.flaccelYOff;
-				LSM303Accel.flaccelZ -= LSM303Accel.flaccelZOff;
-			}
+//	readAccXYZ(&LSM303Accel);
+//	if(LSM303Accel.u8calCnt < 200)
+//	{
+//		LSM303Accel.flaccelXOff += LSM303Accel.flaccelX;
+//		LSM303Accel.flaccelYOff += LSM303Accel.flaccelY;
+//		LSM303Accel.flaccelZOff += LSM303Accel.flaccelZ;
+//		LSM303Accel.u8calCnt++;
+//	}
+//	else
+//		if( LSM303Accel.u8calCnt == 200 )
+//		{
+//			LSM303Accel.flaccelXOff /= 200;
+//			LSM303Accel.flaccelYOff /= 200;
+//			LSM303Accel.flaccelZOff /= 200;
+//			LSM303Accel.flaccelZOff -= 1; // According to gravity on Z axis
+//			LSM303Accel.u8calCnt++ ;
+//		}
+//		else
+//			{
+//				LSM303Accel.flaccelX -= LSM303Accel.flaccelXOff;
+//				LSM303Accel.flaccelY -= LSM303Accel.flaccelYOff;
+//				LSM303Accel.flaccelZ -= LSM303Accel.flaccelZOff;
+//			}
 
-	readMagXYZ();
+	//readMagXYZ();
 }
 
 void EXTI4_IRQHandler(void)
@@ -281,34 +287,46 @@ void L3GD20_Init(L3GD20_InitTypeDef *L3GD20_InitStruct)
 
 static void readGyroXYZ(GyroStruct *GyroData)
 {
-	uint16_t i = 0;
-	uint8_t u8testValL = 0;
-	HAL_StatusTypeDef status = HAL_OK;
 
-	for(i = 0, u8testValL = 0xA8 ; u8testValL < 0xAE ; i++, u8testValL++)
-	{
-		spiTxBuf[0] = u8testValL;
-		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
+	uint8_t u8RegAddrL = 0xAB;
 
-		status = HAL_SPI_Transmit(&hspi1, &spiTxBuf[0], 1, 50);
-		if(HAL_OK == status)
-		{
-			status = HAL_SPI_Receive(&hspi1, &spiRxBuf[i], 1, 50);
-			if(HAL_OK == status)
-			{
-				//HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
-			}
-		}
-		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
-	}
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
+	HAL_SPI_Transmit(&hspi1, &u8RegAddrL, 1, 50);
+	HAL_SPI_Receive_IT(&hspi1, spiRxBuf, 6);
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
 
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+//	uint32_t u32TickL = 0;
+//	float flTempL;
 	gyroBuf[0] = (spiRxBuf[0]<<8 | spiRxBuf[1]);
 	gyroBuf[1] = (spiRxBuf[2]<<8 | spiRxBuf[3]);
 	gyroBuf[2] = (spiRxBuf[4]<<8 | spiRxBuf[5]);
 
-	GyroData->flgyroX = gyroBuf[0] * 0.070;
-	GyroData->flgyroY = gyroBuf[1] * 0.070;
-	GyroData->flgyroZ = gyroBuf[2] * 0.070;
+	L3GD20Gyro->flgyroX = gyroBuf[0] * 0.070;
+	L3GD20Gyro->flgyroY = gyroBuf[1] * 0.070;
+	L3GD20Gyro->flgyroZ = gyroBuf[2] * 0.070;
+
+	L3GD20Gyro->flgyroX += L3GD20Gyro->flgyroX - L3GD20Gyro.flgyroXOff;
+	L3GD20Gyro->flgyroY += L3GD20Gyro->flgyroY - L3GD20Gyro.flgyroYOff;
+	L3GD20Gyro->flgyroZ += L3GD20Gyro->flgyroZ - L3GD20Gyro.flgyroZOff;
+
+//	if(0 == u32LastCalc)
+//	{
+//		u32LastCalc = HAL_GetTick();
+//	}
+//		else
+//		{
+//			u32TickL = HAL_GetTick();
+//			u32TickL -= u32LastCalc;
+//			flTempL = (float)u32TickL/1000;
+//			flAngleX += L3GD20Gyro.flgyroX * flTempL;
+//			flAngleY += L3GD20Gyro.flgyroY * flTempL;
+//			flAngleZ += L3GD20Gyro.flgyroZ * flTempL;
+//			u32LastCalc = HAL_GetTick();
+//		}
 }
 
 void accel_Write(uint8_t buffer, uint8_t WriteAddr)
@@ -349,26 +367,84 @@ uint8_t mag_Read(uint8_t ReadAddr)
 
 static void readAccXYZ(AccelStruct *AccelData)
 {
-	uint8_t i = 0x00;
-	uint8_t u8adrValL = 0x00;
 
-	for(i = 0, u8adrValL = 0x28; u8adrValL <= 0x2D; i++, u8adrValL++)
-	{
-		i2cRxBuf[i] = accel_Read(u8adrValL);
-	}
+	HAL_GPIO_WritePin(GPIOD, LD4_Pin , GPIO_PIN_SET);
+	HAL_I2C_Mem_Read_IT(&hi2c1, ACC_I2C_ADDRESS, 0xA8, 1, i2cRxBuf, 6);
+	HAL_GPIO_WritePin(GPIOD, LD4_Pin , GPIO_PIN_RESET);
 
-	accelBuf[0] = ((i2cRxBuf[0]<<8 | i2cRxBuf[1])>>4);
-	accelBuf[0] = ( accelBuf[0] & 0x800 ? accelBuf[0] | 0xf000 : accelBuf[0] );
-	accelBuf[1] = ((i2cRxBuf[2]<<8 | i2cRxBuf[3])>>4);
-	accelBuf[1] = ( accelBuf[1] & 0x800 ? accelBuf[1] | 0xf000 : accelBuf[1] );
-	accelBuf[2] = ((i2cRxBuf[4]<<8 | i2cRxBuf[5])>>4);
-	accelBuf[2] = ( accelBuf[2] & 0x800 ? accelBuf[2] | 0xf000 : accelBuf[2] );
-
-
-	AccelData->flaccelX = accelBuf[0] * (0.004);
-	AccelData->flaccelY = accelBuf[1] * (0.004);
-	AccelData->flaccelZ = accelBuf[2] * (0.004);
 }
+static HAL_StatusTypeDef AccelRead(void)
+{
+	return HAL_I2C_Mem_Read_IT(&hi2c1, ACC_I2C_ADDRESS, 0xA8, 1, i2cRxBuf, 6);
+}
+
+static HAL_StatusTypeDef MagnRead(void)
+{
+	return HAL_I2C_Mem_Read_IT(&hi2c1, MAG_I2C_ADDRESS, 0x03, 1, i2cRxBuf, 6);
+}
+
+static void AccelConvData(void)
+{
+		accelBuf[0] = ((i2cRxBuf[0]<<8 | i2cRxBuf[1])>>4);
+		accelBuf[0] = ( accelBuf[0] & 0x800 ? accelBuf[0] | 0xf000 : accelBuf[0] );
+		accelBuf[1] = ((i2cRxBuf[2]<<8 | i2cRxBuf[3])>>4);
+		accelBuf[1] = ( accelBuf[1] & 0x800 ? accelBuf[1] | 0xf000 : accelBuf[1] );
+		accelBuf[2] = ((i2cRxBuf[4]<<8 | i2cRxBuf[5])>>4);
+		accelBuf[2] = ( accelBuf[2] & 0x800 ? accelBuf[2] | 0xf000 : accelBuf[2] );
+
+
+		LSM303Accel.flaccelX = accelBuf[0] * (0.004);
+		LSM303Accel.flaccelY = accelBuf[1] * (0.004);
+		LSM303Accel.flaccelZ = accelBuf[2] * (0.004);
+}
+
+static void MagnConvData(void)
+{
+	magBuf[0] = ((magRxBuf[1]<<8 | magRxBuf[0])>>4);
+	magBuf[0] = ( magBuf[0] & 0x800 ? magBuf[0] | 0xf000 : magBuf[0] );
+	magBuf[1] = ((magRxBuf[3]<<8 | magRxBuf[2])>>4);
+	magBuf[1] = ( magBuf[1] & 0x800 ? magBuf[1] | 0xf000 : magBuf[1] );
+	magBuf[2] = ((magRxBuf[5]<<8 | magRxBuf[4])>>4);
+	magBuf[2] = ( magBuf[2] & 0x800 ? magBuf[2] | 0xf000 : magBuf[2] );
+	flMagX = (float)magBuf[0] / 450;
+	flMagY = (float)magBuf[1] / 450;
+	flMagZ = (float)magBuf[2] / 450;
+}
+
+static void ReadI2CSens(void)
+{
+	HAL_StatusTypeDef HalResultL = HAL_OK;
+
+	switch(eI2CSensorReadState)
+	{
+	case eSenRead_Idle:
+		HalResultL = AccelRead();
+		eI2CSensorReadState = (HAL_OK == HalResultL) ? eSenRead_Accel : eSenRead_Idle;
+		break;
+	case eSenRead_Accel:
+		AccelConvData();
+		HalResultL = MagnRead();
+		eI2CSensorReadState = (HAL_OK == HalResultL) ? eSenRead_Magn : eSenRead_Idle;
+		break;
+	case eSenRead_Magn:
+		MagnConvData();
+		eI2CSensorReadState = eSenRead_Idle;
+		break;
+	default:
+		eI2CSensorReadState = eSenRead_Idle;
+		break;
+	}
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	ReadI2CSens();
+}
+
+//void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
+//{
+//}
+
 static void readMagXYZ(void)
 {
 	uint8_t i = 0x00;
@@ -408,18 +484,28 @@ static void LSM303DLHC_Init(void)
 	LSM303Accel.u8calCnt = 0;
 
 	/**/
-	readAccXYZ(&LSM303Accel);
-	readMagXYZ();
+	ReadI2CSens();
 }
 static void toEulerAngle(void)
 {
-	roll = atan2f(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2);
-	pitch = asinf(-2.0f * (q1*q3 - q0*q2));
-	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
+//	roll = atan2f(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2);
+//	pitch = asinf(-2.0f * (q1*q3 - q0*q2));
+//	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
+
+	yaw = atan2f(2.0f*(q1*q2 + q0*q3), q0*q0 + q1*q1 - q2*q2 - q3*q3);
+	pitch = -asinf(2.0f * (q1*q3 - q0*q2));
+	roll = atan2f(2.0f*(q0*q1 + q2*q3), q0*q0 - q1*q1 - q2*q2 + q3*q3);
+
+    pitch *= 180.0f / PI;
+    yaw   *= 180.0f / PI;
+    yaw   -= 5.0f; // Declination at Sofia Bulgaria
+    roll *= 180.0f / PI;
+
 }
 void Madgwick_Task(void *pvParameters)
 {
-	TickType_t xDelay = 5 / portTICK_PERIOD_MS;
+	TickType_t xDelay = 10 / portTICK_PERIOD_MS;
+	uint8_t blink = 0;
 	vTaskDelay(500*xDelay);
 //	mahony_init();
 	for(;;)
@@ -427,16 +513,27 @@ void Madgwick_Task(void *pvParameters)
 //		flMagX = 0;
 //		flMagY = 0;
 //		flMagZ = 0;
-		MadgwickAHRSupdate(flAngleX, flAngleY, flAngleZ,
-							flAccelX, flAccelY, flAccelZ,
-							flMagX, flMagY, flMagZ);
+
+//		MadgwickAHRSupdate(-flAngleX, -flAngleY, flAngleZ,
+//				LSM303Accel.flaccelX, LSM303Accel.flaccelY, LSM303Accel.flaccelZ,
+//							flMagX, flMagY, flMagZ);
 //		mahony_update(flAngleX, flAngleY, flAngleZ,
 //						flAccelX, flAccelY, flAccelZ,
 //						flMagX, flMagY, flMagZ);
-		flAngleX = 0;
-		flAngleY = 0;
-		flAngleZ = 0;
-		toEulerAngle();
+//		flAngleX = 0;
+//		flAngleY = 0;
+//		flAngleZ = 0;
+//		toEulerAngle();
+		if( 0 == blink )
+		{
+			//HAL_GPIO_WritePin(GPIOD, /*LD4_Pin|*/LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
+			blink = 1;
+		}
+		else
+		{
+			//HAL_GPIO_WritePin(GPIOD, /*LD4_Pin|*/LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_RESET);
+			blink = 0;
+		}
 
 		vTaskDelay(xDelay);
 	}
@@ -474,7 +571,7 @@ void Gyro_Task(void *pvParameters)
 	{
 		if( count > 1000 )
 		{
-			HAL_GPIO_WritePin(GPIOD, LD3_Pin , GPIO_PIN_SET);
+			//HAL_GPIO_WritePin(GPIOD, LD3_Pin , GPIO_PIN_SET);
 		}
 //		if( fabs(flGyroY) > 1000 )
 //		{
@@ -489,12 +586,68 @@ void Gyro_Task(void *pvParameters)
 	}
 }
 
+boolean Sensors_Calibrate(void)
+{
+  boolean bIsCalibrationDoneL = cFalse;
+  static uint8_t u8CalibrationCounterL = 0;
+  static boolean bIsSensCalibrationDoneL = cFalse;
+
+  if( cFalse == bIsSensCalibrationDoneL )
+  {
+    LSM303Accel.flaccelXOff += LSM303Accel.flaccelX;
+    LSM303Accel.flaccelYOff += LSM303Accel.flaccelY;
+    LSM303Accel.flaccelZOff += LSM303Accel.flaccelZ;
+
+    AccelRead();
+
+    u8CalibrationCounterL++;
+
+    if( cCalibrationSamples == u8CalibrationCounterL )
+    {
+      bIsCalibrationDoneL = cTrue;
+      // move out of sensor calibration section if more sensors are calibrated
+      bIsSensCalibrationDoneL = cTrue;
+
+      LSM303Accel.flaccelXOff /= cCalibrationSamples;
+      LSM303Accel.flaccelYOff /= cCalibrationSamples;
+      LSM303Accel.flaccelZOff /= cCalibrationSamples;
+    }
+  }
+
+  return bIsCalibrationDoneL;
+}
+
+static void ReadGyro(void)
+{
+
+}
+
+void sensorRead_5ms (void const * argument)
+{
+	static boolean bSensorsAreCalibratedL = cFalse;
+	portTickType xLastWakeTime;
+	xLastWakeTime = xTaskGetTickCount();
+   /* Infinite loop */
+	for(;;)
+	{
+	    vTaskDelayUntil(&xLastWakeTime, (5/portTICK_RATE_MS));
+	    if(cFalse == bSensorsAreCalibratedL)
+	    {
+	        bSensorsAreCalibratedL = Sensors_Calibrate();
+	    }
+	    else
+	    {
+	    	ReadI2CSens();
+	    	ReadGyro();
+	    }
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
-  *
-  * @retval None
+  * @retval int
   */
 int main(void)
 {
@@ -502,7 +655,7 @@ int main(void)
 
   /* USER CODE END 1 */
 
-  /* MCU Configuration----------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -520,6 +673,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
   MX_USB_OTG_FS_HCD_Init();
@@ -532,6 +686,7 @@ int main(void)
   			  0,
   			  2,
   			  0);
+  __HAL_DMA_ENABLE_IT (&hdma_i2c1_rx, DMA_IT_TC);
 //  xTaskCreate(Gyro_Task,
 //  			  (const char* const)"gyro_task",
 //  			  configMINIMAL_STACK_SIZE,
@@ -567,6 +722,8 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+  osThreadDef(sensorRead5ms, sensorRead_5ms, osPriorityNormal, 0, 128);
+  sensorTaskHandle = osThreadCreate(osThread(sensorRead5ms), NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -584,13 +741,12 @@ int main(void)
   while (1)
   {
 
-  /* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-  /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 
   }
   /* USER CODE END 3 */
-
 }
 
 /**
@@ -599,19 +755,16 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
-
-    /**Configure the main internal regulator output voltage 
-    */
+  /**Configure the main internal regulator output voltage 
+  */
   __HAL_RCC_PWR_CLK_ENABLE();
-
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
+  /**Initializes the CPU, AHB and APB busses clocks 
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
@@ -622,11 +775,10 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLQ = 8;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
-
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
+  /**Initializes the CPU, AHB and APB busses clocks 
+  */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
@@ -636,34 +788,33 @@ void SystemClock_Config(void)
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
-
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2S;
   PeriphClkInitStruct.PLLI2S.PLLI2SN = 200;
   PeriphClkInitStruct.PLLI2S.PLLI2SM = 5;
   PeriphClkInitStruct.PLLI2S.PLLI2SR = 2;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
-
-    /**Configure the Systick interrupt time 
-    */
-  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
-
-    /**Configure the Systick 
-    */
-  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
-
-  /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 15, 0);
 }
 
-/* I2C1 init function */
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_I2C1_Init(void)
 {
 
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
   hi2c1.Init.ClockSpeed = 100000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
@@ -675,15 +826,29 @@ static void MX_I2C1_Init(void)
   hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
   if (HAL_I2C_Init(&hi2c1) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 
-/* I2S2 init function */
+/**
+  * @brief I2S2 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_I2S2_Init(void)
 {
 
+  /* USER CODE BEGIN I2S2_Init 0 */
+
+  /* USER CODE END I2S2_Init 0 */
+
+  /* USER CODE BEGIN I2S2_Init 1 */
+
+  /* USER CODE END I2S2_Init 1 */
   hi2s2.Instance = SPI2;
   hi2s2.Init.Mode = I2S_MODE_MASTER_TX;
   hi2s2.Init.Standard = I2S_STANDARD_PHILIPS;
@@ -695,15 +860,29 @@ static void MX_I2S2_Init(void)
   hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_ENABLE;
   if (HAL_I2S_Init(&hi2s2) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
+  /* USER CODE BEGIN I2S2_Init 2 */
+
+  /* USER CODE END I2S2_Init 2 */
 
 }
 
-/* I2S3 init function */
+/**
+  * @brief I2S3 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_I2S3_Init(void)
 {
 
+  /* USER CODE BEGIN I2S3_Init 0 */
+
+  /* USER CODE END I2S3_Init 0 */
+
+  /* USER CODE BEGIN I2S3_Init 1 */
+
+  /* USER CODE END I2S3_Init 1 */
   hi2s3.Instance = SPI3;
   hi2s3.Init.Mode = I2S_MODE_MASTER_TX;
   hi2s3.Init.Standard = I2S_STANDARD_PHILIPS;
@@ -715,15 +894,29 @@ static void MX_I2S3_Init(void)
   hi2s3.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
   if (HAL_I2S_Init(&hi2s3) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
+  /* USER CODE BEGIN I2S3_Init 2 */
+
+  /* USER CODE END I2S3_Init 2 */
 
 }
 
-/* SPI1 init function */
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_SPI1_Init(void)
 {
 
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
   /* SPI1 parameter configuration*/
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
@@ -739,15 +932,29 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCPolynomial = 10;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
 
 }
 
-/* USB_OTG_FS init function */
+/**
+  * @brief USB_OTG_FS Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_USB_OTG_FS_HCD_Init(void)
 {
 
+  /* USER CODE BEGIN USB_OTG_FS_Init 0 */
+
+  /* USER CODE END USB_OTG_FS_Init 0 */
+
+  /* USER CODE BEGIN USB_OTG_FS_Init 1 */
+
+  /* USER CODE END USB_OTG_FS_Init 1 */
   hhcd_USB_OTG_FS.Instance = USB_OTG_FS;
   hhcd_USB_OTG_FS.Init.Host_channels = 8;
   hhcd_USB_OTG_FS.Init.speed = HCD_SPEED_FULL;
@@ -756,22 +963,41 @@ static void MX_USB_OTG_FS_HCD_Init(void)
   hhcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
   if (HAL_HCD_Init(&hhcd_USB_OTG_FS) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
+  /* USER CODE BEGIN USB_OTG_FS_Init 2 */
+
+  /* USER CODE END USB_OTG_FS_Init 2 */
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
-        * Output
-        * EVENT_OUT
-        * EXTI
-*/
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_GPIO_Init(void)
 {
-
-  GPIO_InitTypeDef GPIO_InitStruct;
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
@@ -896,11 +1122,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 /**
   * @brief  This function is executed in case of error occurrence.
-  * @param  file: The file name as string.
-  * @param  line: The line in file as a number.
   * @retval None
   */
-void _Error_Handler(char *file, int line)
+void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
@@ -918,7 +1142,7 @@ void _Error_Handler(char *file, int line)
   * @param  line: assert_param error line source number
   * @retval None
   */
-void assert_failed(uint8_t* file, uint32_t line)
+void assert_failed(uint8_t *file, uint32_t line)
 { 
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
@@ -926,13 +1150,5 @@ void assert_failed(uint8_t* file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
