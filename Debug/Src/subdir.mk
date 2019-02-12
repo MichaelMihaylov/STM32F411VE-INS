@@ -4,6 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Src/IMU_Sensors.c \
 ../Src/L3GD20.c \
 ../Src/MadgwickAHRS.c \
 ../Src/freertos.c \
@@ -14,6 +15,7 @@ C_SRCS += \
 ../Src/system_stm32f4xx.c 
 
 OBJS += \
+./Src/IMU_Sensors.o \
 ./Src/L3GD20.o \
 ./Src/MadgwickAHRS.o \
 ./Src/freertos.o \
@@ -24,6 +26,7 @@ OBJS += \
 ./Src/system_stm32f4xx.o 
 
 C_DEPS += \
+./Src/IMU_Sensors.d \
 ./Src/L3GD20.d \
 ./Src/MadgwickAHRS.d \
 ./Src/freertos.d \

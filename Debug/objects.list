@@ -28,6 +28,7 @@
 "Middlewares/Third_Party/FreeRTOS/Source/timers.o"
 "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.o"
 "Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.o"
+"Src/IMU_Sensors.o"
 "Src/L3GD20.o"
 "Src/MadgwickAHRS.o"
 "Src/freertos.o"

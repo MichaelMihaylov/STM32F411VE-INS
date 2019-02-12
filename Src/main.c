@@ -53,6 +53,7 @@ I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_rx;
+DMA_HandleTypeDef hdma_spi1_tx;
 
 HCD_HandleTypeDef hhcd_USB_OTG_FS;
 
@@ -63,7 +64,7 @@ osThreadId defaultTaskHandle;
  *	Sofia 1124
  *	Bulgaria					  */
 /* Private variables ---------------------------------------------------------*/
-osThreadId sensorTaskHandle;
+//osThreadId sensorTaskHandle;
 
 uint8_t spiTxBuf[2];
 uint8_t spiRxBuf[6];
@@ -102,14 +103,6 @@ static void MX_SPI1_Init(void);
 static void MX_USB_OTG_FS_HCD_Init(void);
 static void MX_I2S2_Init(void);
 static void MX_I2S3_Init(void);
-
-static void ReadI2CSens(void);
-static void AccelConvData(void);
-static void MagnConvData(void);
-static HAL_StatusTypeDef AccelRead(void);
-static HAL_StatusTypeDef MagnRead(void);
-
-
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -135,46 +128,46 @@ void EXTI1_IRQHandler(void)
 {
 	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
 
-	uint32_t u32TickL = 0;
-	float flTempL;
+//	uint32_t u32TickL = 0;
+//	float flTempL;
 
 	readGyroXYZ(&L3GD20Gyro);
 
-	if(L3GD20Gyro.u8calCnt < 200)
-	{
-		L3GD20Gyro.flgyroXOff += L3GD20Gyro.flgyroX;
-		L3GD20Gyro.flgyroYOff += L3GD20Gyro.flgyroY;
-		L3GD20Gyro.flgyroZOff += L3GD20Gyro.flgyroZ;
-		L3GD20Gyro.u8calCnt++;
-	}
-	else
-		if( L3GD20Gyro.u8calCnt == 200 )
-		{
-			L3GD20Gyro.flgyroXOff /= 200;
-			L3GD20Gyro.flgyroYOff /= 200;
-			L3GD20Gyro.flgyroZOff /= 200;
-			L3GD20Gyro.u8calCnt++ ;
-		}
-		else
-			{
-				L3GD20Gyro.flgyroX -= L3GD20Gyro.flgyroXOff;
-				L3GD20Gyro.flgyroY -= L3GD20Gyro.flgyroYOff;
-				L3GD20Gyro.flgyroZ -= L3GD20Gyro.flgyroZOff;
-				if(0 == u32LastCalc)
-				{
-					u32LastCalc = HAL_GetTick();
-				}
-				else
-				{
-					u32TickL = HAL_GetTick();
-					u32TickL -= u32LastCalc;
-					flTempL = (float)u32TickL/1000;
-					flAngleX += L3GD20Gyro.flgyroX * flTempL;
-					flAngleY += L3GD20Gyro.flgyroY * flTempL;
-					flAngleZ += L3GD20Gyro.flgyroZ * flTempL;
-					u32LastCalc = HAL_GetTick();
-				}
-			}
+//	if(L3GD20Gyro.u8calCnt < 200)
+//	{
+//		L3GD20Gyro.flgyroXOff += L3GD20Gyro.flgyroX;
+//		L3GD20Gyro.flgyroYOff += L3GD20Gyro.flgyroY;
+//		L3GD20Gyro.flgyroZOff += L3GD20Gyro.flgyroZ;
+//		L3GD20Gyro.u8calCnt++;
+//	}
+//	else
+//		if( L3GD20Gyro.u8calCnt == 200 )
+//		{
+//			L3GD20Gyro.flgyroXOff /= 200;
+//			L3GD20Gyro.flgyroYOff /= 200;
+//			L3GD20Gyro.flgyroZOff /= 200;
+//			L3GD20Gyro.u8calCnt++ ;
+//		}
+//		else
+//			{
+//				L3GD20Gyro.flgyroX -= L3GD20Gyro.flgyroXOff;
+//				L3GD20Gyro.flgyroY -= L3GD20Gyro.flgyroYOff;
+//				L3GD20Gyro.flgyroZ -= L3GD20Gyro.flgyroZOff;
+//				if(0 == u32LastCalc)
+//				{
+//					u32LastCalc = HAL_GetTick();
+//				}
+//				else
+//				{
+//					u32TickL = HAL_GetTick();
+//					u32TickL -= u32LastCalc;
+//					flTempL = (float)u32TickL/1000;
+//					flAngleX += L3GD20Gyro.flgyroX * flTempL;
+//					flAngleY += L3GD20Gyro.flgyroY * flTempL;
+//					flAngleZ += L3GD20Gyro.flgyroZ * flTempL;
+//					u32LastCalc = HAL_GetTick();
+//				}
+//			}
 }
 
 void EXTI2_IRQHandler(void)
@@ -228,13 +221,13 @@ void gyroscope_Init(void)
 	sGyroL.BlockData_Update = L3GD20_BlockDataUpdate_Continous;
 	sGyroL.Endianness = L3GD20_BLE_MSB;
 	sGyroL.Full_Scale = L3GD20_FULLSCALE_2000;
-	L3GD20Gyro.flgyroX = 0;
-	L3GD20Gyro.flgyroY = 0;
-	L3GD20Gyro.flgyroZ = 0;
-	L3GD20Gyro.flgyroXOff = 0;
-	L3GD20Gyro.flgyroYOff = 0;
-	L3GD20Gyro.flgyroZOff = 0;
-	L3GD20Gyro.u8calCnt = 0;
+	L3GD20Gyro.flGyroX = 0;
+	L3GD20Gyro.flGyroY = 0;
+	L3GD20Gyro.flGyroZ = 0;
+	L3GD20Gyro.flGyroXOff = 0;
+	L3GD20Gyro.flGyroYOff = 0;
+	L3GD20Gyro.flGyroZOff = 0;
+	L3GD20Gyro.u8CalCnt = 0;
 
 	L3GD20_Init(&sGyroL);
 	/* In order for the DRDY interrupt to trigger the data has to be read first*/
@@ -287,14 +280,15 @@ void L3GD20_Init(L3GD20_InitTypeDef *L3GD20_InitStruct)
 
 static void readGyroXYZ(GyroStruct *GyroData)
 {
+	uint8_t u8RegAddrL = 0xE8;
 
-	uint8_t u8RegAddrL = 0xAB;
-
-	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi1, &u8RegAddrL, 1, 50);
-	HAL_SPI_Receive_IT(&hspi1, spiRxBuf, 6);
-	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
-
+	if(HAL_SPI_GetState(&hspi1) == HAL_SPI_STATE_READY)
+	{
+		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
+		HAL_SPI_Transmit(&hspi1, &u8RegAddrL, 1, 50);
+		HAL_SPI_Receive(&hspi1, spiRxBuf, 6, 50);
+		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+	}
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
@@ -305,13 +299,13 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 	gyroBuf[1] = (spiRxBuf[2]<<8 | spiRxBuf[3]);
 	gyroBuf[2] = (spiRxBuf[4]<<8 | spiRxBuf[5]);
 
-	L3GD20Gyro->flgyroX = gyroBuf[0] * 0.070;
-	L3GD20Gyro->flgyroY = gyroBuf[1] * 0.070;
-	L3GD20Gyro->flgyroZ = gyroBuf[2] * 0.070;
+	L3GD20Gyro.flGyroX = gyroBuf[0] * 0.070;
+	L3GD20Gyro.flGyroY = gyroBuf[1] * 0.070;
+	L3GD20Gyro.flGyroZ = gyroBuf[2] * 0.070;
 
-	L3GD20Gyro->flgyroX += L3GD20Gyro->flgyroX - L3GD20Gyro.flgyroXOff;
-	L3GD20Gyro->flgyroY += L3GD20Gyro->flgyroY - L3GD20Gyro.flgyroYOff;
-	L3GD20Gyro->flgyroZ += L3GD20Gyro->flgyroZ - L3GD20Gyro.flgyroZOff;
+	L3GD20Gyro.flGyroX += L3GD20Gyro.flGyroX - L3GD20Gyro.flGyroXOff;
+	L3GD20Gyro.flGyroY += L3GD20Gyro.flGyroY - L3GD20Gyro.flGyroYOff;
+	L3GD20Gyro.flGyroZ += L3GD20Gyro.flGyroZ - L3GD20Gyro.flGyroZOff;
 
 //	if(0 == u32LastCalc)
 //	{
@@ -331,11 +325,9 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 
 void accel_Write(uint8_t buffer, uint8_t WriteAddr)
 {
-  /* Chip select (CS) to begin */
 	i2cTxBuf[0] = WriteAddr;
 	i2cTxBuf[1] = buffer;
 	HAL_I2C_Master_Transmit(&hi2c1, ACC_I2C_ADDRESS, i2cTxBuf, 2, 50);
-
 }
 
 uint8_t accel_Read(uint8_t ReadAddr)
@@ -393,9 +385,9 @@ static void AccelConvData(void)
 		accelBuf[2] = ( accelBuf[2] & 0x800 ? accelBuf[2] | 0xf000 : accelBuf[2] );
 
 
-		LSM303Accel.flaccelX = accelBuf[0] * (0.004);
-		LSM303Accel.flaccelY = accelBuf[1] * (0.004);
-		LSM303Accel.flaccelZ = accelBuf[2] * (0.004);
+		LSM303Accel.flAccelX = accelBuf[0] * (0.004);
+		LSM303Accel.flAccelY = accelBuf[1] * (0.004);
+		LSM303Accel.flAccelZ = accelBuf[2] * (0.004);
 }
 
 static void MagnConvData(void)
@@ -475,16 +467,15 @@ static void LSM303DLHC_Init(void)
 	mag_Write(0x00, 0x02);
 
 
-	LSM303Accel.flaccelX = 0;
-	LSM303Accel.flaccelY = 0;
-	LSM303Accel.flaccelZ = 0;
-	LSM303Accel.flaccelXOff = 0;
-	LSM303Accel.flaccelYOff = 0;
-	LSM303Accel.flaccelZOff = 0;
-	LSM303Accel.u8calCnt = 0;
+	LSM303Accel.flAccelX = 0;
+	LSM303Accel.flAccelY = 0;
+	LSM303Accel.flAccelZ = 0;
+	LSM303Accel.flAccelXOff = 0;
+	LSM303Accel.flAccelYOff = 0;
+	LSM303Accel.flAccelZOff = 0;
+	LSM303Accel.u8CalCnt = 0;
 
 	/**/
-	ReadI2CSens();
 }
 static void toEulerAngle(void)
 {
@@ -504,9 +495,9 @@ static void toEulerAngle(void)
 }
 void Madgwick_Task(void *pvParameters)
 {
-	TickType_t xDelay = 10 / portTICK_PERIOD_MS;
+	TickType_t xDelay = 500 / portTICK_PERIOD_MS;
 	uint8_t blink = 0;
-	vTaskDelay(500*xDelay);
+	//vTaskDelay(500*xDelay);
 //	mahony_init();
 	for(;;)
 	{
@@ -526,12 +517,12 @@ void Madgwick_Task(void *pvParameters)
 //		toEulerAngle();
 		if( 0 == blink )
 		{
-			//HAL_GPIO_WritePin(GPIOD, /*LD4_Pin|*/LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
 			blink = 1;
 		}
 		else
 		{
-			//HAL_GPIO_WritePin(GPIOD, /*LD4_Pin|*/LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_RESET);
 			blink = 0;
 		}
 
@@ -586,62 +577,61 @@ void Gyro_Task(void *pvParameters)
 	}
 }
 
-boolean Sensors_Calibrate(void)
-{
-  boolean bIsCalibrationDoneL = cFalse;
-  static uint8_t u8CalibrationCounterL = 0;
-  static boolean bIsSensCalibrationDoneL = cFalse;
+//boolean Sensors_Calibrate(void)
+//{
+//  boolean bIsCalibrationDoneL = cFalse;
+//  static uint8_t u8CalibrationCounterL = 0;
+//  static boolean bIsSensCalibrationDoneL = cFalse;
+//
+//  if( cFalse == bIsSensCalibrationDoneL )
+//  {
+//    LSM303Accel.flaccelXOff += LSM303Accel.flaccelX;
+//    LSM303Accel.flaccelYOff += LSM303Accel.flaccelY;
+//    LSM303Accel.flaccelZOff += LSM303Accel.flaccelZ;
+//
+//    AccelRead();
+//
+//    u8CalibrationCounterL++;
+//
+//    if( cCalibrationSamples == u8CalibrationCounterL )
+//    {
+//      bIsCalibrationDoneL = cTrue;
+//      // move out of sensor calibration section if more sensors are calibrated
+//      bIsSensCalibrationDoneL = cTrue;
+//
+//      LSM303Accel.flaccelXOff /= cCalibrationSamples;
+//      LSM303Accel.flaccelYOff /= cCalibrationSamples;
+//      LSM303Accel.flaccelZOff /= cCalibrationSamples;
+//    }
+//  }
+//
+//  return bIsCalibrationDoneL;
+//}
 
-  if( cFalse == bIsSensCalibrationDoneL )
-  {
-    LSM303Accel.flaccelXOff += LSM303Accel.flaccelX;
-    LSM303Accel.flaccelYOff += LSM303Accel.flaccelY;
-    LSM303Accel.flaccelZOff += LSM303Accel.flaccelZ;
+//static void ReadGyro(void)
+//{
+//
+//}
 
-    AccelRead();
-
-    u8CalibrationCounterL++;
-
-    if( cCalibrationSamples == u8CalibrationCounterL )
-    {
-      bIsCalibrationDoneL = cTrue;
-      // move out of sensor calibration section if more sensors are calibrated
-      bIsSensCalibrationDoneL = cTrue;
-
-      LSM303Accel.flaccelXOff /= cCalibrationSamples;
-      LSM303Accel.flaccelYOff /= cCalibrationSamples;
-      LSM303Accel.flaccelZOff /= cCalibrationSamples;
-    }
-  }
-
-  return bIsCalibrationDoneL;
-}
-
-static void ReadGyro(void)
-{
-
-}
-
-void sensorRead_5ms (void const * argument)
-{
-	static boolean bSensorsAreCalibratedL = cFalse;
-	portTickType xLastWakeTime;
-	xLastWakeTime = xTaskGetTickCount();
-   /* Infinite loop */
-	for(;;)
-	{
-	    vTaskDelayUntil(&xLastWakeTime, (5/portTICK_RATE_MS));
-	    if(cFalse == bSensorsAreCalibratedL)
-	    {
-	        bSensorsAreCalibratedL = Sensors_Calibrate();
-	    }
-	    else
-	    {
-	    	ReadI2CSens();
-	    	ReadGyro();
-	    }
-	}
-}
+//void sensorRead_5ms (void const * argument)
+//{
+//	static boolean bSensorsAreCalibratedL = cFalse;
+//   /* Infinite loop */
+//	for(;;)
+//	{
+////	    if(cFalse == bSensorsAreCalibratedL)
+////	    {
+////	        bSensorsAreCalibratedL = Sensors_Calibrate();
+////	    }
+////	    else
+////	    {
+//	    	ReadI2CSens();
+//	    	//ReadGyro();
+////	    }
+//
+//		vTaskDelay(5);
+//	}
+//}
 
 /* USER CODE END 0 */
 
@@ -681,12 +671,11 @@ int main(void)
   MX_I2S3_Init();
   /* USER CODE BEGIN 2 */
   xTaskCreate(Madgwick_Task,
-  			  (const char* const)"madgwick_task",
+  			  (const char* const)"Madgwick_Task",
   			  configMINIMAL_STACK_SIZE,
   			  0,
   			  2,
   			  0);
-  __HAL_DMA_ENABLE_IT (&hdma_i2c1_rx, DMA_IT_TC);
 //  xTaskCreate(Gyro_Task,
 //  			  (const char* const)"gyro_task",
 //  			  configMINIMAL_STACK_SIZE,
@@ -722,8 +711,6 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  osThreadDef(sensorRead5ms, sensorRead_5ms, osPriorityNormal, 0, 128);
-  sensorTaskHandle = osThreadCreate(osThread(sensorRead5ms), NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -987,6 +974,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+  /* DMA2_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 
 }
 

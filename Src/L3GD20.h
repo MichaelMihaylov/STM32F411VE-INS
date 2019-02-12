@@ -41,13 +41,16 @@ typedef struct
 
 typedef struct
 {
-  volatile float flgyroX;            /* Axes Data*/
-  volatile float flgyroY;            /* Axes Data*/
-  volatile float flgyroZ;            /* Axes Data*/
-  float flgyroXOff;                  /* Axes Offset*/
-  float flgyroYOff;                  /* Axes Offset*/
-  float flgyroZOff;                  /* Axes Offset*/
-  uint8_t u8calCnt;                  /* Calibration counter*/
+  volatile float flGyroX;            /* Axes Data*/
+  volatile float flGyroY;            /* Axes Data*/
+  volatile float flGyroZ;            /* Axes Data*/
+  float flGyroXOff;                  /* Axes Offset*/
+  float flGyroYOff;                  /* Axes Offset*/
+  float flGyroZOff;                  /* Axes Offset*/
+  int16_t u16GyroXRaw;				 /* Axes Raw */
+  int16_t u16GyroYRaw;				 /* Axes Raw */
+  int16_t u16GyroZRaw;				 /* Axes Raw */
+  uint8_t u8CalCnt;                  /* Calibration counter*/
 }GyroStruct;
 
 /* L3GD20 High Pass Filter struct */

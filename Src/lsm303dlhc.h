@@ -67,24 +67,24 @@
 
  typedef struct
  {
-   volatile float flaccelX;            /* Axes Data*/
-   volatile float flaccelY;            /* Axes Data*/
-   volatile float flaccelZ;            /* Axes Data*/
-   float flaccelXOff;                  /* Axes Offset*/
-   float flaccelYOff;                  /* Axes Offset*/
-   float flaccelZOff;                  /* Axes Offset*/
-   uint8_t u8calCnt;                   /* Calibration counter*/
+   volatile float flAccelX;            /* Axes Data*/
+   volatile float flAccelY;            /* Axes Data*/
+   volatile float flAccelZ;            /* Axes Data*/
+   float flAccelXOff;                  /* Axes Offset*/
+   float flAccelYOff;                  /* Axes Offset*/
+   float flAccelZOff;                  /* Axes Offset*/
+   uint8_t u8CalCnt;                   /* Calibration counter*/
  }AccelStruct;
 
  typedef struct
  {
-   volatile float flmagX;            /* Axes Data*/
-   volatile float flmagY;            /* Axes Data*/
-   volatile float flmagZ;            /* Axes Data*/
-   float flmagXOff;                  /* Axes Offset*/
-   float flmagYOff;                  /* Axes Offset*/
-   float flmagZOff;                  /* Axes Offset*/
-   uint8_t u8calCnt;                 /* Calibration counter*/
+   volatile float flMagnX;            /* Axes Data*/
+   volatile float flMagnY;            /* Axes Data*/
+   volatile float flMagnZ;            /* Axes Data*/
+   float flMagnXOff;                  /* Axes Offset*/
+   float flMagnYOff;                  /* Axes Offset*/
+   float flMagnZOff;                  /* Axes Offset*/
+   uint8_t u8CalCnt;                 /* Calibration counter*/
  }MagStruct;
 
 /******************************************************************************/
