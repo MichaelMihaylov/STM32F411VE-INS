@@ -124,6 +124,7 @@ static void toEulerAngle(void);
 /* USER CODE BEGIN 0 */
 
 /* Interrupt handler for DataReady Pin of L3GD20 */
+static void readGyroXYZ_IT(void);
 void EXTI1_IRQHandler(void)
 {
 	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
@@ -131,7 +132,8 @@ void EXTI1_IRQHandler(void)
 //	uint32_t u32TickL = 0;
 //	float flTempL;
 
-	readGyroXYZ(&L3GD20Gyro);
+	readGyroXYZ_IT();
+	//readGyroXYZ(&L3GD20Gyro);
 
 //	if(L3GD20Gyro.u8calCnt < 200)
 //	{
@@ -291,10 +293,73 @@ static void readGyroXYZ(GyroStruct *GyroData)
 	}
 }
 
+static void readGyroXYZ_IT(void)
+{
+	HAL_SPI_StateTypeDef state;
+	uint8_t u8RegAddrL = 0xE8;
+
+	uint8_t u8BuffL[7];
+	u8BuffL[0] = 0xE8;
+	u8BuffL[1] = 0;
+	u8BuffL[2] = 0;
+	u8BuffL[3] = 0;
+	u8BuffL[4] = 0;
+	u8BuffL[5] = 0;
+	u8BuffL[6] = 0;
+	uint8_t u8RxBuffL[7];
+	u8RxBuffL[0] = 0;
+	u8RxBuffL[1] = 0;
+	u8RxBuffL[2] = 0;
+	u8RxBuffL[3] = 0;
+	u8RxBuffL[4] = 0;
+	u8RxBuffL[5] = 0;
+	u8RxBuffL[6] = 0;
+	if(HAL_SPI_GetState(&hspi1) == HAL_SPI_STATE_READY)
+	{
+		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
+		//HAL_SPI_Transmit(&hspi1, &u8RegAddrL, 1, 50);
+		//HAL_SPI_Receive_IT(&hspi1, spiRxBuf, 6);
+		HAL_SPI_TransmitReceive_IT(&hspi1, u8BuffL, u8RxBuffL,7);
+	}
+	else
+	{
+		state = HAL_SPI_GetState(&hspi1);
+	}
+}
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+void HAL_SPI_AbortCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+void HAL_SPI_TxHalfCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+void HAL_SPI_RxHalfCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+void HAL_SPI_TxRxHalfCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
+}
+
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 {
 //	uint32_t u32TickL = 0;
 //	float flTempL;
+	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
 	gyroBuf[0] = (spiRxBuf[0]<<8 | spiRxBuf[1]);
 	gyroBuf[1] = (spiRxBuf[2]<<8 | spiRxBuf[3]);
 	gyroBuf[2] = (spiRxBuf[4]<<8 | spiRxBuf[5]);
@@ -495,7 +560,7 @@ static void toEulerAngle(void)
 }
 void Madgwick_Task(void *pvParameters)
 {
-	TickType_t xDelay = 500 / portTICK_PERIOD_MS;
+	TickType_t xDelay = 5 / portTICK_PERIOD_MS;
 	uint8_t blink = 0;
 	//vTaskDelay(500*xDelay);
 //	mahony_init();

@@ -47,9 +47,9 @@ typedef struct
   float flGyroXOff;                  /* Axes Offset*/
   float flGyroYOff;                  /* Axes Offset*/
   float flGyroZOff;                  /* Axes Offset*/
-  int16_t u16GyroXRaw;				 /* Axes Raw */
-  int16_t u16GyroYRaw;				 /* Axes Raw */
-  int16_t u16GyroZRaw;				 /* Axes Raw */
+  int32_t s32GyroXRaw;				 /* Axes Raw */
+  int32_t s32GyroYRaw;				 /* Axes Raw */
+  int32_t s32GyroZRaw;				 /* Axes Raw */
   uint8_t u8CalCnt;                  /* Calibration counter*/
 }GyroStruct;
 
