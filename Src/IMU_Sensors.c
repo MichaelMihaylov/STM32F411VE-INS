@@ -10,19 +10,8 @@
 #include "L3GD20.h"
 #include "main.h"
 
-typedef enum tSensorReadState
-{
-  eSenRead_Idle,
-  eSenRead_Gyro,
-  eSenRead_Accel,
-  eSenRead_Magn
-} tSensorReadState;
+#include "Typedef.h"
 
-typedef enum
-{
-  cFalse,
-  cTrue
-} boolean;
 
 #define CALIB_SAMPLES 100
 /* Private function definitions */
@@ -67,6 +56,12 @@ static I2C_HandleTypeDef * pI2CHandle;
 static SPI_HandleTypeDef * pSPIHandle;
 
 /* Public functions --------------------------------------------------------------------------------------------------------------------*/
+void EXTI1_IRQHandler(void)
+{
+	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
+
+	//L3GD20_ReadXYZ();
+}
 
 void IMU_Sensors_MainFunction(void)
 {
@@ -90,10 +85,10 @@ boolean Sensors_Calibrate(void)
 	boolean bResultL = cFalse;
 	
 	if(CALIB_SAMPLES > u8CalibrationSamples)
-	{
+	{		
 		ReadI2CSens();
 		ReadSPISens();
-		
+
 		L3GD20Gyro.flGyroXOff += L3GD20Gyro.flGyroX;
 		L3GD20Gyro.flGyroYOff += L3GD20Gyro.flGyroY;
 		L3GD20Gyro.flGyroZOff += L3GD20Gyro.flGyroZ;
@@ -122,36 +117,40 @@ boolean Sensors_Calibrate(void)
 		LSM303Accel.flAccelXOff /= u8CalibrationSamples;
 		LSM303Accel.flAccelYOff /= u8CalibrationSamples;
 		LSM303Accel.flAccelZOff /= u8CalibrationSamples;
+
+		/* To account for gravity on Z axis */
+		LSM303Accel.flAccelZOff --;
 		
 		bResultL = cTrue;
 	}
+	return bResultL;
 }
 
-void IMU_Sensors_GetGyroData(float * flGyroP)
+void IMU_Sensors_GetGyroData(float * flGyroXP, float * flGyroYP, float * flGyroZP)
 {
-	flGyroP[0] = L3GD20Gyro.flGyroX;
-	flGyroP[1] = L3GD20Gyro.flGyroY;
-	flGyroP[2] = L3GD20Gyro.flGyroZ;
+	*flGyroXP = L3GD20Gyro.flGyroX - L3GD20Gyro.flGyroXOff;
+	*flGyroYP = L3GD20Gyro.flGyroY - L3GD20Gyro.flGyroYOff;
+	*flGyroZP = L3GD20Gyro.flGyroZ - L3GD20Gyro.flGyroZOff;
 }
 
-void IMU_Sensors_GetAccelData(float * flAccelP)
+void IMU_Sensors_GetAccelData(float * flAccelXP, float * flAccelYP, float * flAccelZP)
 {
-	flAccelP[0] = LSM303Accel.flAccelX;
-	flAccelP[1] = LSM303Accel.flAccelY;
-	flAccelP[2] = LSM303Accel.flAccelZ;
+	*flAccelXP = LSM303Accel.flAccelX - LSM303Accel.flAccelXOff;
+	*flAccelYP = LSM303Accel.flAccelY - LSM303Accel.flAccelYOff;
+	*flAccelZP = LSM303Accel.flAccelZ - LSM303Accel.flAccelZOff;
 }
 
-void IMU_Sensors_GetMagnData(float * flMagnP)
+void IMU_Sensors_GetMagnData(float * flMagnXP, float * flMagnYP, float * flMagnZP)
 {
-	flMagnP[0] = LSM303Magn.flMagnX;
-	flMagnP[1] = LSM303Magn.flMagnY;
-	flMagnP[2] = LSM303Magn.flMagnZ;
+	*flMagnXP = LSM303Magn.flMagnX;
+	*flMagnYP = LSM303Magn.flMagnY;
+	*flMagnZP = LSM303Magn.flMagnZ;
 }
 
-//void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
-//{
-//	ReadI2CSens();
-//}
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	ReadI2CSens();
+}
 
 /*void EXTI1_IRQHandler(void)
 {
@@ -229,7 +228,7 @@ static void Gyro_L3GD20_Write(uint8_t buffer, uint8_t WriteAddr)
 	txBuf[1] = buffer;
 	
 	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&pSPIHandle, txBuf, 2, 50);
+	HAL_SPI_Transmit(pSPIHandle, txBuf, 2, 50);
 	HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
 }
 
@@ -268,7 +267,7 @@ static void Accel_Write(uint8_t buffer, uint8_t WriteAddr)
 	uint8_t TxBuff[2];
 	TxBuff[0] = WriteAddr;
 	TxBuff[1] = buffer;
-	HAL_I2C_Master_Transmit(&pI2CHandle, ACC_I2C_ADDRESS, TxBuff, 2, 50);
+	HAL_I2C_Master_Transmit(pI2CHandle, ACC_I2C_ADDRESS, TxBuff, 2, 50);
 }
 
 static void Magn_Write(uint8_t buffer, uint8_t WriteAddr)
@@ -276,7 +275,7 @@ static void Magn_Write(uint8_t buffer, uint8_t WriteAddr)
 	uint8_t TxBuff[2];
 	TxBuff[0] = WriteAddr;
 	TxBuff[1] = buffer;
-	HAL_I2C_Master_Transmit(&pI2CHandle, MAG_I2C_ADDRESS, TxBuff, 2, 50);
+	HAL_I2C_Master_Transmit(pI2CHandle, MAG_I2C_ADDRESS, TxBuff, 2, 50);
 }
 
 static void ReadI2CSens(void)
@@ -314,35 +313,38 @@ static void L3GD20_ReadXYZ(void)
 {
 	uint8_t u8RegAddrL = 0xE8;
 
-	if(HAL_SPI_GetState(&pSPIHandle) == HAL_SPI_STATE_READY)
+	if(HAL_SPI_GetState(pSPIHandle) == HAL_SPI_STATE_READY)
 	{
 		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
-		HAL_SPI_Transmit(&pSPIHandle, &u8RegAddrL, 1, 50);
-		HAL_SPI_Receive(&pSPIHandle, spiRxBuf, 6, 50);
+		HAL_SPI_Transmit(pSPIHandle, &u8RegAddrL, 1, 50);
+		HAL_SPI_Receive(pSPIHandle, spiRxBuf, 6, 50);
 		HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_SET);
 	}
-	L3GD20Gyro.s32GyroXRaw += (spiRxBuf[0]<<8 | spiRxBuf[1]);
-	L3GD20Gyro.s32GyroYRaw += (spiRxBuf[2]<<8 | spiRxBuf[3]);
-	L3GD20Gyro.s32GyroZRaw += (spiRxBuf[4]<<8 | spiRxBuf[5]);
-	L3GD20Gyro.u8CalCnt++;
+
+//	L3GD20Gyro.s32GyroXRaw = (spiRxBuf[0]<<8 | spiRxBuf[1]);
+//	L3GD20Gyro.s32GyroYRaw = (spiRxBuf[2]<<8 | spiRxBuf[3]);
+//	L3GD20Gyro.s32GyroZRaw = (spiRxBuf[4]<<8 | spiRxBuf[5]);
+	//L3GD20Gyro.u8CalCnt++;
 }
 
 static HAL_StatusTypeDef AccelRead(void)
 {
-	return HAL_I2C_Mem_Read_IT(&pI2CHandle, ACC_I2C_ADDRESS, 0xA8, 1, i2cRxBuf, 6);
+	return HAL_I2C_Mem_Read_IT(pI2CHandle, ACC_I2C_ADDRESS, 0xA8, 1, i2cRxBuf, 6);
 }
 
 static HAL_StatusTypeDef MagnRead(void)
 {
-	return HAL_I2C_Mem_Read_IT(&pI2CHandle, MAG_I2C_ADDRESS, 0x03, 1, i2cRxBuf, 6);
+	return HAL_I2C_Mem_Read_IT(pI2CHandle, MAG_I2C_ADDRESS, 0x03, 1, i2cRxBuf, 6);
 }
 
 static void AccelConvData(void)
 {
 		accelBuf[0] = ((i2cRxBuf[0]<<8 | i2cRxBuf[1])>>4);
 		accelBuf[0] = ( accelBuf[0] & 0x800 ? accelBuf[0] | 0xf000 : accelBuf[0] );
+
 		accelBuf[1] = ((i2cRxBuf[2]<<8 | i2cRxBuf[3])>>4);
 		accelBuf[1] = ( accelBuf[1] & 0x800 ? accelBuf[1] | 0xf000 : accelBuf[1] );
+
 		accelBuf[2] = ((i2cRxBuf[4]<<8 | i2cRxBuf[5])>>4);
 		accelBuf[2] = ( accelBuf[2] & 0x800 ? accelBuf[2] | 0xf000 : accelBuf[2] );
 
@@ -351,9 +353,9 @@ static void AccelConvData(void)
 		LSM303Accel.flAccelY = accelBuf[1] * (0.004);
 		LSM303Accel.flAccelZ = accelBuf[2] * (0.004);
 		
-		LSM303Accel.flAccelX -= LSM303Accel.flAccelXOff;
-		LSM303Accel.flAccelY -= LSM303Accel.flAccelYOff;
-		LSM303Accel.flAccelZ -= LSM303Accel.flAccelZOff;
+//		LSM303Accel.flAccelX -= LSM303Accel.flAccelXOff;
+//		LSM303Accel.flAccelY -= LSM303Accel.flAccelYOff;
+//		LSM303Accel.flAccelZ -= LSM303Accel.flAccelZOff;
 }
 
 static void MagnConvData(void)
@@ -373,16 +375,23 @@ static void MagnConvData(void)
 static void GyroConvData(void)
 {
 	/* Calculate the average Gyro value from the values aquired asynchronously */
-	L3GD20Gyro.flGyroX = (L3GD20Gyro.s32GyroXRaw * 0.070) / L3GD20Gyro.u8CalCnt;
-	L3GD20Gyro.flGyroY = (L3GD20Gyro.s32GyroYRaw * 0.070) / L3GD20Gyro.u8CalCnt;
-	L3GD20Gyro.flGyroZ = (L3GD20Gyro.s32GyroZRaw * 0.070) / L3GD20Gyro.u8CalCnt;
+	int16_t s16GyroXL, s16GyroYL, s16GyroZL;
+	
+	s16GyroXL = (spiRxBuf[0]<<8 | spiRxBuf[1]);
+	s16GyroYL = (spiRxBuf[2]<<8 | spiRxBuf[3]);
+	s16GyroZL = (spiRxBuf[4]<<8 | spiRxBuf[5]);
+	
+	L3GD20Gyro.flGyroX = (s16GyroXL * 0.070);// / L3GD20Gyro.u8CalCnt;
+	L3GD20Gyro.flGyroY = (s16GyroYL * 0.070);// / L3GD20Gyro.u8CalCnt;
+	L3GD20Gyro.flGyroZ = (s16GyroZL * 0.070);// / L3GD20Gyro.u8CalCnt;
+
 	/* Reset the sums of the asynchronously aquired gyro data and the number of aquisitions counter */
-	L3GD20Gyro.s32GyroXRaw = 0;
-	L3GD20Gyro.s32GyroYRaw = 0;
-	L3GD20Gyro.s32GyroZRaw = 0;
-	L3GD20Gyro.u8CalCnt = 0;
+//	L3GD20Gyro.s32GyroXRaw = 0;
+//	L3GD20Gyro.s32GyroYRaw = 0;
+//	L3GD20Gyro.s32GyroZRaw = 0;
+//	L3GD20Gyro.u8CalCnt = 0;
 	/* Apply calibration corrections */
-	L3GD20Gyro.flGyroX -= L3GD20Gyro.flGyroXOff;
-	L3GD20Gyro.flGyroY -= L3GD20Gyro.flGyroYOff;
-	L3GD20Gyro.flGyroZ -= L3GD20Gyro.flGyroZOff;
+//	L3GD20Gyro.flGyroX -= L3GD20Gyro.flGyroXOff;
+//	L3GD20Gyro.flGyroY -= L3GD20Gyro.flGyroYOff;
+//	L3GD20Gyro.flGyroZ -= L3GD20Gyro.flGyroZOff;
 }

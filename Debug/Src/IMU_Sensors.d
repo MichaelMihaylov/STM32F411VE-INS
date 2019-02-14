@@ -33,7 +33,7 @@ Src/IMU_Sensors.o: ../Src/IMU_Sensors.c \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_hcd.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h \
  ../Src/lsm303dlhc.h ../Src/L3GD20.h \
- C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h
+ C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h ../Src/Typedef.h
 
 C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 
@@ -106,3 +106,5 @@ C:/Users/mihay002/Desktop/MyProjects/DirMk1/Drivers/STM32F4xx_HAL_Driver/Inc/stm
 ../Src/L3GD20.h:
 
 C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h:
+
+../Src/Typedef.h:

@@ -16,6 +16,8 @@
 #include "L3GD20.h"
 #include "lsm303dlhc.h"
 #include "MadgwickAHRS.h"
+#include "IMU_Sensors.h"
+#include "Typedef.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -25,18 +27,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-typedef enum tSensorReadState
-{
-  eSenRead_Idle,
-  eSenRead_Accel,
-  eSenRead_Magn
-} tI2CSensorReadState;
 
-typedef enum
-{
-  cFalse,
-  cTrue
-} boolean;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -91,7 +82,7 @@ const float PI = 3.1415927;
 const uint8_t cCalibrationSamples = 40;
 GyroStruct L3GD20Gyro;
 AccelStruct LSM303Accel;
-static tI2CSensorReadState eI2CSensorReadState = eSenRead_Idle;
+//static tI2CSensorReadState eI2CSensorReadState = eSenRead_Idle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -125,52 +116,6 @@ static void toEulerAngle(void);
 
 /* Interrupt handler for DataReady Pin of L3GD20 */
 static void readGyroXYZ_IT(void);
-void EXTI1_IRQHandler(void)
-{
-	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
-
-//	uint32_t u32TickL = 0;
-//	float flTempL;
-
-	readGyroXYZ_IT();
-	//readGyroXYZ(&L3GD20Gyro);
-
-//	if(L3GD20Gyro.u8calCnt < 200)
-//	{
-//		L3GD20Gyro.flgyroXOff += L3GD20Gyro.flgyroX;
-//		L3GD20Gyro.flgyroYOff += L3GD20Gyro.flgyroY;
-//		L3GD20Gyro.flgyroZOff += L3GD20Gyro.flgyroZ;
-//		L3GD20Gyro.u8calCnt++;
-//	}
-//	else
-//		if( L3GD20Gyro.u8calCnt == 200 )
-//		{
-//			L3GD20Gyro.flgyroXOff /= 200;
-//			L3GD20Gyro.flgyroYOff /= 200;
-//			L3GD20Gyro.flgyroZOff /= 200;
-//			L3GD20Gyro.u8calCnt++ ;
-//		}
-//		else
-//			{
-//				L3GD20Gyro.flgyroX -= L3GD20Gyro.flgyroXOff;
-//				L3GD20Gyro.flgyroY -= L3GD20Gyro.flgyroYOff;
-//				L3GD20Gyro.flgyroZ -= L3GD20Gyro.flgyroZOff;
-//				if(0 == u32LastCalc)
-//				{
-//					u32LastCalc = HAL_GetTick();
-//				}
-//				else
-//				{
-//					u32TickL = HAL_GetTick();
-//					u32TickL -= u32LastCalc;
-//					flTempL = (float)u32TickL/1000;
-//					flAngleX += L3GD20Gyro.flgyroX * flTempL;
-//					flAngleY += L3GD20Gyro.flgyroY * flTempL;
-//					flAngleZ += L3GD20Gyro.flgyroZ * flTempL;
-//					u32LastCalc = HAL_GetTick();
-//				}
-//			}
-}
 
 void EXTI2_IRQHandler(void)
 {
@@ -468,35 +413,35 @@ static void MagnConvData(void)
 	flMagZ = (float)magBuf[2] / 450;
 }
 
-static void ReadI2CSens(void)
-{
-	HAL_StatusTypeDef HalResultL = HAL_OK;
+//static void ReadI2CSens(void)
+//{
+//	HAL_StatusTypeDef HalResultL = HAL_OK;
+//
+//	switch(eI2CSensorReadState)
+//	{
+//	case eSenRead_Idle:
+//		HalResultL = AccelRead();
+//		eI2CSensorReadState = (HAL_OK == HalResultL) ? eSenRead_Accel : eSenRead_Idle;
+//		break;
+//	case eSenRead_Accel:
+//		AccelConvData();
+//		HalResultL = MagnRead();
+//		eI2CSensorReadState = (HAL_OK == HalResultL) ? eSenRead_Magn : eSenRead_Idle;
+//		break;
+//	case eSenRead_Magn:
+//		MagnConvData();
+//		eI2CSensorReadState = eSenRead_Idle;
+//		break;
+//	default:
+//		eI2CSensorReadState = eSenRead_Idle;
+//		break;
+//	}
+//}
 
-	switch(eI2CSensorReadState)
-	{
-	case eSenRead_Idle:
-		HalResultL = AccelRead();
-		eI2CSensorReadState = (HAL_OK == HalResultL) ? eSenRead_Accel : eSenRead_Idle;
-		break;
-	case eSenRead_Accel:
-		AccelConvData();
-		HalResultL = MagnRead();
-		eI2CSensorReadState = (HAL_OK == HalResultL) ? eSenRead_Magn : eSenRead_Idle;
-		break;
-	case eSenRead_Magn:
-		MagnConvData();
-		eI2CSensorReadState = eSenRead_Idle;
-		break;
-	default:
-		eI2CSensorReadState = eSenRead_Idle;
-		break;
-	}
-}
-
-void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-	ReadI2CSens();
-}
+//void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+//{
+//	ReadI2CSens();
+//}
 
 //void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 //{
@@ -558,12 +503,17 @@ static void toEulerAngle(void)
     roll *= 180.0f / PI;
 
 }
+float flGyroXL, flGyroYL, flGyroZL;
+float flAccelXL, flAccelYL, flAccelZL;
+float flMagnXL, flMagnYL, flMagnZL;
 void Madgwick_Task(void *pvParameters)
 {
 	TickType_t xDelay = 5 / portTICK_PERIOD_MS;
 	uint8_t blink = 0;
 	//vTaskDelay(500*xDelay);
 //	mahony_init();
+	boolean bCalibDoneL = cFalse;
+
 	for(;;)
 	{
 //		flMagX = 0;
@@ -580,6 +530,23 @@ void Madgwick_Task(void *pvParameters)
 //		flAngleY = 0;
 //		flAngleZ = 0;
 //		toEulerAngle();
+		if(cTrue != bCalibDoneL)
+		{
+			bCalibDoneL = Sensors_Calibrate();
+		}
+		else
+		{
+			IMU_Sensors_MainFunction();
+
+			IMU_Sensors_GetGyroData(&flGyroXL, &flGyroYL, &flGyroZL);
+			IMU_Sensors_GetAccelData(&flAccelXL, &flAccelYL, &flAccelZL);
+			IMU_Sensors_GetMagnData(&flMagnXL, &flMagnYL, &flMagnZL);
+
+			MadgwickAHRSupdate(-flGyroXL, -flGyroYL, flGyroZL,
+					flAccelXL, flAccelYL, flAccelZL,
+					flMagnXL, flMagnYL, flMagnZL);
+		}
+
 		if( 0 == blink )
 		{
 			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
@@ -735,12 +702,6 @@ int main(void)
   MX_I2S2_Init();
   MX_I2S3_Init();
   /* USER CODE BEGIN 2 */
-  xTaskCreate(Madgwick_Task,
-  			  (const char* const)"Madgwick_Task",
-  			  configMINIMAL_STACK_SIZE,
-  			  0,
-  			  2,
-  			  0);
 //  xTaskCreate(Gyro_Task,
 //  			  (const char* const)"gyro_task",
 //  			  configMINIMAL_STACK_SIZE,
@@ -754,7 +715,15 @@ int main(void)
 //  			  2,
 //  			  0);
   HAL_Delay(500);
-  IMU_Init();
+
+  IMU_Sensors_Init(&hi2c1, &hspi1);
+
+  xTaskCreate(Madgwick_Task,
+  			  (const char* const)"Madgwick_Task",
+  			  configMINIMAL_STACK_SIZE,
+  			  0,
+  			  2,
+  			  0);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */

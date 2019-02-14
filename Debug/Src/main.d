@@ -50,7 +50,8 @@ Src/main.o: ../Src/main.c \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  C:/Users/mihay002/Desktop/MyProjects/DirMk1/Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- ../Src/L3GD20.h ../Src/lsm303dlhc.h ../Src/MadgwickAHRS.h
+ ../Src/L3GD20.h ../Src/lsm303dlhc.h ../Src/MadgwickAHRS.h \
+ ../Src/IMU_Sensors.h ../Src/Typedef.h
 
 C:/Users/mihay002/Desktop/MyProjects/DirMk1/Inc/main.h:
 
@@ -159,3 +160,7 @@ C:/Users/mihay002/Desktop/MyProjects/DirMk1/Middlewares/Third_Party/FreeRTOS/Sou
 ../Src/lsm303dlhc.h:
 
 ../Src/MadgwickAHRS.h:
+
+../Src/IMU_Sensors.h:
+
+../Src/Typedef.h:
