@@ -153,22 +153,23 @@ void Madgwick_Task(void *pvParameters)
 			IMU_Sensors_GetAccelData(&flAccelXL, &flAccelYL, &flAccelZL);
 			IMU_Sensors_GetMagnData(&flMagnXL, &flMagnYL, &flMagnZL);
 
-			MadgwickAHRSupdateIMU(-flGyroXL, -flGyroYL, flGyroZL,
-					flAccelXL, flAccelYL, flAccelZL);
+			MadgwickAHRSupdate(-flGyroXL, -flGyroYL, flGyroZL,
+					flAccelXL, flAccelYL, flAccelZL,
+					flMagnXL, flMagnYL, flMagnZL);
 
 			toEulerAngle();
 		}
 
-		if( 0 == blink )
-		{
-			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
-			blink = 1;
-		}
-		else
-		{
-			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_RESET);
-			blink = 0;
-		}
+//		if( 0 == blink )
+//		{
+//			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_SET);
+//			blink = 1;
+//		}
+//		else
+//		{
+//			HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin , GPIO_PIN_RESET);
+//			blink = 0;
+//		}
 
 		vTaskDelay(xDelay);
 	}

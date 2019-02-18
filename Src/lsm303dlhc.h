@@ -78,12 +78,16 @@
 
  typedef struct
  {
-   volatile float flMagnX;            /* Axes Data*/
-   volatile float flMagnY;            /* Axes Data*/
-   volatile float flMagnZ;            /* Axes Data*/
-   float flMagnXOff;                  /* Axes Offset*/
-   float flMagnYOff;                  /* Axes Offset*/
-   float flMagnZOff;                  /* Axes Offset*/
+   float flMagnX;            /* Axes Data*/
+   float flMagnY;            /* Axes Data*/
+   float flMagnZ;            /* Axes Data*/
+   float flMagnXMin;
+   float flMagnYMin;
+   float flMagnZMin;
+   float flMagnXMax;
+   float flMagnYMax;
+   float flMagnZMax;
+   float flMaxDelta;
    uint8_t u8CalCnt;                 /* Calibration counter*/
  }MagStruct;
 

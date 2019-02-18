@@ -35,6 +35,7 @@ static void ReadSPISens(void);
 static void L3GD20_ReadXYZ(void);
 static void ReadSPISens(void);
 static void GyroConvData(void);
+static void SetMinMax(float * flMinP, float * flMaxP, float * flAxisP);
 
 /* Private Data */
 
@@ -79,6 +80,14 @@ void IMU_Sensors_Init(I2C_HandleTypeDef * pI2CHandleP, SPI_HandleTypeDef * pSPIH
 	Magn_Init();
 }
 
+void IMU_Sensors_MagnCalibrate(void)
+{
+	SetMinMax(&LSM303Magn.flMagnXMin, &LSM303Magn.flMagnXMax, &LSM303Magn.flMagnX);
+	SetMinMax(&LSM303Magn.flMagnYMin, &LSM303Magn.flMagnYMax, &LSM303Magn.flMagnY);
+	SetMinMax(&LSM303Magn.flMagnZMin, &LSM303Magn.flMagnZMax, &LSM303Magn.flMagnZ);
+
+}
+
 boolean Sensors_Calibrate(void)
 {
 	static uint8_t u8CalibrationSamples = 0;
@@ -93,10 +102,6 @@ boolean Sensors_Calibrate(void)
 		L3GD20Gyro.flGyroYOff += L3GD20Gyro.flGyroY;
 		L3GD20Gyro.flGyroZOff += L3GD20Gyro.flGyroZ;
 		
-		LSM303Magn.flMagnXOff += LSM303Magn.flMagnX;
-		LSM303Magn.flMagnYOff += LSM303Magn.flMagnY;
-		LSM303Magn.flMagnZOff += LSM303Magn.flMagnZ;
-		
 		LSM303Accel.flAccelXOff += LSM303Accel.flAccelX;
 		LSM303Accel.flAccelYOff += LSM303Accel.flAccelY;
 		LSM303Accel.flAccelZOff += LSM303Accel.flAccelZ;
@@ -109,10 +114,6 @@ boolean Sensors_Calibrate(void)
 		L3GD20Gyro.flGyroXOff /= u8CalibrationSamples;
 		L3GD20Gyro.flGyroYOff /= u8CalibrationSamples;
 		L3GD20Gyro.flGyroZOff /= u8CalibrationSamples;
-		
-		LSM303Magn.flMagnXOff /= u8CalibrationSamples;
-		LSM303Magn.flMagnYOff /= u8CalibrationSamples;
-		LSM303Magn.flMagnZOff /= u8CalibrationSamples;
 		
 		LSM303Accel.flAccelXOff /= u8CalibrationSamples;
 		LSM303Accel.flAccelYOff /= u8CalibrationSamples;
@@ -142,9 +143,24 @@ void IMU_Sensors_GetAccelData(float * flAccelXP, float * flAccelYP, float * flAc
 
 void IMU_Sensors_GetMagnData(float * flMagnXP, float * flMagnYP, float * flMagnZP)
 {
-	*flMagnXP = LSM303Magn.flMagnX;
-	*flMagnYP = LSM303Magn.flMagnY;
-	*flMagnZP = LSM303Magn.flMagnZ;
+	float flDeltaXL, flDeltaYL, flDeltaZL;
+	float flOffXL, flOffYL, flOffZL;
+
+	SetMinMax(&LSM303Magn.flMagnXMin, &LSM303Magn.flMagnXMax, &LSM303Magn.flMagnX);
+	SetMinMax(&LSM303Magn.flMagnYMin, &LSM303Magn.flMagnYMax, &LSM303Magn.flMagnY);
+	SetMinMax(&LSM303Magn.flMagnZMin, &LSM303Magn.flMagnZMax, &LSM303Magn.flMagnZ);
+
+	flDeltaXL = LSM303Magn.flMagnXMax - LSM303Magn.flMagnXMin;
+	flDeltaYL = LSM303Magn.flMagnYMax - LSM303Magn.flMagnYMin;
+	flDeltaZL = LSM303Magn.flMagnZMax - LSM303Magn.flMagnZMin;
+
+	flOffXL = (LSM303Magn.flMagnXMax + LSM303Magn.flMagnXMin)/ 2.0f;
+	flOffYL = (LSM303Magn.flMagnYMax + LSM303Magn.flMagnYMin)/ 2.0f;
+	flOffZL = (LSM303Magn.flMagnZMax + LSM303Magn.flMagnZMin)/ 2.0f;
+
+	*flMagnXP = (LSM303Magn.flMagnX - flOffXL) * (flDeltaXL / LSM303Magn.flMaxDelta);
+	*flMagnYP = (LSM303Magn.flMagnY - flOffYL) * (flDeltaYL / LSM303Magn.flMaxDelta);
+	*flMagnZP = (LSM303Magn.flMagnZ - flOffZL) * (flDeltaZL / LSM303Magn.flMaxDelta);
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
@@ -162,6 +178,23 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
 
 
 /* Private functions -------------------------------------------------------------------------------------------------------------------*/
+static void SetMinMax(float * flMinP, float * flMaxP, float * flAxisP)
+{
+	if(*flAxisP > *flMaxP)
+	{
+		*flMaxP = *flAxisP;
+	}
+
+	if(*flAxisP < *flMinP)
+	{
+		*flMinP = *flAxisP;
+	}
+
+	if( LSM303Magn.flMaxDelta < (*flMaxP - *flMinP))
+	{
+		LSM303Magn.flMaxDelta = *flMaxP - *flMinP;
+	}
+}
 
 static void Accel_Init(void)
 {
@@ -250,15 +283,12 @@ static void LSM303DLHC_Accel_Init(void)
 static void LSM303DLHC_Magn_Init(void)
 {
 	Magn_Write(0x9C, 0x00);
-	Magn_Write(0x80, 0x01);
+	Magn_Write(0xE0, 0x01);
 	Magn_Write(0x00, 0x02);
 	
 	LSM303Magn.flMagnX = 0;
 	LSM303Magn.flMagnY = 0;
 	LSM303Magn.flMagnZ = 0;
-	LSM303Magn.flMagnXOff = 0;
-	LSM303Magn.flMagnYOff = 0;
-	LSM303Magn.flMagnZOff = 0;
 	LSM303Magn.u8CalCnt = 0;
 }
 
@@ -367,9 +397,9 @@ static void MagnConvData(void)
 	magBuf[2] = ((i2cRxBuf[5]<<8 | i2cRxBuf[4])>>4);
 	magBuf[2] = ( magBuf[2] & 0x800 ? magBuf[2] | 0xf000 : magBuf[2] );
 	
-	LSM303Magn.flMagnX = (float)magBuf[0] / 450;
-	LSM303Magn.flMagnY = (float)magBuf[1] / 450;
-	LSM303Magn.flMagnZ = (float)magBuf[2] / 450;
+	LSM303Magn.flMagnX = (float)magBuf[0] / 230;
+	LSM303Magn.flMagnY = (float)magBuf[1] / 230;
+	LSM303Magn.flMagnZ = (float)magBuf[2] / 205;
 }
 
 static void GyroConvData(void)
