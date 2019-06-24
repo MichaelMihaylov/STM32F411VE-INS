@@ -282,7 +282,7 @@ static void LSM303DLHC_Accel_Init(void)
 
 static void LSM303DLHC_Magn_Init(void)
 {
-	Magn_Write(0x9C, 0x00);
+	Magn_Write(0x14, 0x00);
 	Magn_Write(0xE0, 0x01);
 	Magn_Write(0x00, 0x02);
 	
@@ -387,7 +387,8 @@ static void AccelConvData(void)
 //		LSM303Accel.flAccelY -= LSM303Accel.flAccelYOff;
 //		LSM303Accel.flAccelZ -= LSM303Accel.flAccelZOff;
 }
-
+uint16_t u16MagXRAW1;// TODO Remove this
+int16_t s16MagXRAW2;
 static void MagnConvData(void)
 {
 	magBuf[0] = ((i2cRxBuf[1]<<8 | i2cRxBuf[0])>>4);
@@ -397,6 +398,9 @@ static void MagnConvData(void)
 	magBuf[2] = ((i2cRxBuf[5]<<8 | i2cRxBuf[4])>>4);
 	magBuf[2] = ( magBuf[2] & 0x800 ? magBuf[2] | 0xf000 : magBuf[2] );
 	
+	u16MagXRAW1 = ((i2cRxBuf[1]<<8 | i2cRxBuf[0]));//TODO Remove this
+	s16MagXRAW2 = magBuf[0];//TODO Remove this
+
 	LSM303Magn.flMagnX = (float)magBuf[0] / 230;
 	LSM303Magn.flMagnY = (float)magBuf[1] / 230;
 	LSM303Magn.flMagnZ = (float)magBuf[2] / 205;

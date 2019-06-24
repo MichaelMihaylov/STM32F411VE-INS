@@ -153,9 +153,13 @@ void Madgwick_Task(void *pvParameters)
 			IMU_Sensors_GetAccelData(&flAccelXL, &flAccelYL, &flAccelZL);
 			IMU_Sensors_GetMagnData(&flMagnXL, &flMagnYL, &flMagnZL);
 
+//			mahony_update(-flGyroXL, -flGyroYL, flGyroZL,
+//					flAccelXL, flAccelYL, flAccelZL,
+//					-flMagnXL, -flMagnYL, flMagnZL);
+
 			MadgwickAHRSupdate(-flGyroXL, -flGyroYL, flGyroZL,
-					flAccelXL, flAccelYL, flAccelZL,
-					flMagnXL, flMagnYL, flMagnZL);
+								flAccelXL, flAccelYL, flAccelZL,
+								-flMagnYL, -flMagnXL, -flMagnZL);
 
 			toEulerAngle();
 		}
