@@ -33,7 +33,7 @@
 // Variable definitions
 
 volatile float beta = betaDef;								// 2 * proportional gain (Kp)
-volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;	// quaternion of sensor frame relative to auxiliary frame
+volatile float q0 = 1.0, q1 = 0.0, q2 = 0.0, q3 = 0.0;	// quaternion of sensor frame relative to auxiliary frame
 
 volatile float twoKp = twoKpDef;		// 2 * proportional gain (Kp)
 volatile float twoKi = twoKiDef; // 2 * integral gain (Ki)

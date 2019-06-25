@@ -18,6 +18,8 @@
 #include "MadgwickAHRS.h"
 #include "IMU_Sensors.h"
 #include "Typedef.h"
+#include "BNO055.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -118,7 +120,7 @@ float flMagnXL, flMagnYL, flMagnZL;
 
 void Madgwick_Task(void *pvParameters)
 {
-	TickType_t xDelay = 5 / portTICK_PERIOD_MS;
+	TickType_t xDelay = 10 / portTICK_PERIOD_MS;
 	uint8_t blink = 0;
 	//vTaskDelay(500*xDelay);
 //	mahony_init();
@@ -126,6 +128,15 @@ void Madgwick_Task(void *pvParameters)
 
 	for(;;)
 	{
+		BNO055_MainFunction();
+
+//		yaw = atan2f(2.0f*(qx*qy + qw*qz), qw*qw + qx*qx - qy*qy - qz*qz);
+//		pitch = -asinf(2.0f * (qx*qz - qw*qy));
+//		roll = atan2f(2.0f*(qw*qx + qy*qz), qw*qw - qx*qx - qy*qy + qz*qz);
+//
+//		pitch *= 180.0f / PI;
+//		yaw   *= 180.0f / PI;
+//		roll *= 180.0f / PI;
 //		flMagX = 0;
 //		flMagY = 0;
 //		flMagZ = 0;
@@ -141,28 +152,28 @@ void Madgwick_Task(void *pvParameters)
 //		flAngleZ = 0;
 //		toEulerAngle();
 
-		if(cTrue != bCalibDoneL)
-		{
-			bCalibDoneL = Sensors_Calibrate();
-		}
-		else
-		{
-			IMU_Sensors_MainFunction();
-
-			IMU_Sensors_GetGyroData(&flGyroXL, &flGyroYL, &flGyroZL);
-			IMU_Sensors_GetAccelData(&flAccelXL, &flAccelYL, &flAccelZL);
-			IMU_Sensors_GetMagnData(&flMagnXL, &flMagnYL, &flMagnZL);
-
-//			mahony_update(-flGyroXL, -flGyroYL, flGyroZL,
-//					flAccelXL, flAccelYL, flAccelZL,
-//					-flMagnXL, -flMagnYL, flMagnZL);
-
-			MadgwickAHRSupdate(-flGyroXL, -flGyroYL, flGyroZL,
-								flAccelXL, flAccelYL, flAccelZL,
-								-flMagnYL, -flMagnXL, -flMagnZL);
-
-			toEulerAngle();
-		}
+//		if(cTrue != bCalibDoneL)
+//		{
+//			bCalibDoneL = Sensors_Calibrate();
+//		}
+//		else
+//		{
+//			IMU_Sensors_MainFunction();
+//
+//			IMU_Sensors_GetGyroData(&flGyroXL, &flGyroYL, &flGyroZL);
+//			IMU_Sensors_GetAccelData(&flAccelXL, &flAccelYL, &flAccelZL);
+//			IMU_Sensors_GetMagnData(&flMagnXL, &flMagnYL, &flMagnZL);
+//
+////			mahony_update(-flGyroXL, -flGyroYL, flGyroZL,
+////					flAccelXL, flAccelYL, flAccelZL,
+////					-flMagnXL, -flMagnYL, flMagnZL);
+//
+//			MadgwickAHRSupdate(-flGyroXL, -flGyroYL, flGyroZL,
+//								flAccelXL, flAccelYL, flAccelZL,
+//								-flMagnYL, -flMagnXL, -flMagnZL);
+//
+//			toEulerAngle();
+//		}
 
 //		if( 0 == blink )
 //		{
@@ -219,7 +230,8 @@ int main(void)
 
   HAL_Delay(500);
 
-  IMU_Sensors_Init(&hi2c1, &hspi1);
+  //IMU_Sensors_Init(&hi2c1, &hspi1);
+  BNO055_Init(&hi2c1);
 
   xTaskCreate(Madgwick_Task,
   			  (const char* const)"Madgwick_Task",

@@ -163,10 +163,10 @@ void IMU_Sensors_GetMagnData(float * flMagnXP, float * flMagnYP, float * flMagnZ
 	*flMagnZP = (LSM303Magn.flMagnZ - flOffZL) * (flDeltaZL / LSM303Magn.flMaxDelta);
 }
 
-void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-	ReadI2CSens();
-}
+//void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+//{
+//	ReadI2CSens();
+//}
 
 /*void EXTI1_IRQHandler(void)
 {
